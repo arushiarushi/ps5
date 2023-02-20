@@ -1,0 +1,346 @@
+---
+title: "ps5"
+author: "Arushi Agarwal"
+date: "2023-02-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+ load tidyverse
+
+```{r}
+
+```
+
+```{r, message=FALSE}
+library(tidyverse)
+```
+
+ 1.Load and check data (5pt)
+
+2.  (2pt) Load data. How many rows/columns do we have?
+
+```{r }
+
+gapminder <- read_delim("~/Desktop/Info201/ps5/gapminder.csv.bz2", delim = "\t",show_col_types = FALSE)
+
+n_rows <- nrow(gapminder)
+n_rows
+n_cols <- ncol(gapminder)
+n_cols
+cat("The data frame has", n_rows, "rows and", n_cols, "columns.")
+
+```
+3.  (2pt) cat a small sample of data. Does it look OK?
+```{r}
+head(gapminder, n = 6)
+```
+
+2.  Descriptive Statistics (5pt)
+
+1.  (3pt) How many countries are there in the dataset? Analyze all three: *iso3*, *iso2* and *name*.
+```{r}
+gapminder %>%
+  select(iso3, name, iso2)%>%
+  summarise(name = n_distinct(name), iso2 = n_distinct(iso2), 
+            iso3 = n_distinct(iso3))
+```
+2.  If you did this correctly, you saw that there are more iso-2 codes than names, and there are even more *iso3*-codes. What is going on? Can you find it out?
+  (a) (5pt) Find how many names are there for each iso-2 code. Are there any iso-2 codes that correspond to more than one name? What are these countries?
+
+```{r}
+
+gapminder %>% 
+  group_by(iso2) %>% 
+  summarise(num_name = n_distinct(name)) %>% 
+  arrange(desc(num_name))
+
+```
+    (b) (5pt) Now repeat the same for name and iso3-code. Are there country names that have more than one iso3-code? What are these countries? Hint: two of these entitites are *CHANISL* and *NLD CURACAO*.
+```{r}
+gapminder %>%
+  filter(is.na(name))%>%
+  group_by(name) %>%
+  filter(is.na(iso2))%>%
+  distinct(iso3)
+  
+```
+
+3.  (2pt) What is the minimum and maximum year in these data?
+```{r}
+gapm <- gapminder %>% filter(!is.na(time) & time != "")
+min_year <- min(gapm$time)
+max_year <- max(gapm$time)
+
+cat("The minimum year is", min_year, "\n")
+cat("The maximum year is", max_year, "\n")
+```
+
+3. CO2 emissions (30pt)
+
+1.  (2pt) How many missing co2 emissions are there for each year? Analyze both missing *CO2* and *co2_PC*. Which years have most missing data?
+```{r}
+gapminder %>%
+  group_by(time) %>%
+  summarize(missing_co2 = sum(is.na(co2)),
+            missing_co2_PC = sum(is.na(co2_PC)))
+
+missing_co2 <- gapminder %>%
+  filter(is.na(co2)) %>%
+  group_by(time) %>%
+  summarise(missing_co2 = n()) %>%
+  arrange(desc(missing_co2))
+head(missing_co2, 5)
+
+cat("These are the years with the most missing data.")
+```
+
+2.  (5pt) Make a plot of total CO2 emissions over time for the U.S, China, and India. Add a few more countries of your choice. Explain what do you see.\
+```{r}
+countries <- c("United States of America", "China", "India", "Argentina", "Italy")
+
+co2_by_country <- gapminder %>% 
+  filter(name %in% countries) %>% 
+  group_by(name, time) %>% 
+  summarize(total_co2 = sum(co2, na.rm = TRUE))
+
+ggplot(co2_by_country, aes(x = time, y = total_co2, color = name)) +
+  geom_line() +
+  xlab("Year") +
+  ylab("Total CO2 Emissions (metric tons per capita)") +
+  ggtitle("Total CO2 Emissions over Time for Selected Countries")
+
+cat("I see that China has the highest total emissions over time. The USA comes after that. Argentina
+      and Italy has one the lowest total emissions out of this group.")
+
+```
+
+3.  (5pt) Now let's analyze the CO2 emissions per capita (*co2_PC*). Make a similar plot of thesame countries. What does this figure suggest?\
+```{r}
+co2pc_by_country <- gapminder %>%
+  filter(name %in% countries) %>%
+  group_by(name, time) %>%
+  summarise(co2_pc = sum(co2_PC, na.rm = TRUE))
+
+ggplot(co2pc_by_country, aes(x = time, y = co2_pc, color = name)) +
+  geom_line() +
+  xlab("Year") + 
+  ylab("CO2 Emissions Per Capita") + 
+  ggtitle("CO2 Emissions Per Capita by Country ")
+
+cat("The figure suggests that the United States has had the most C02 emissions per capita however this declined in 2015. The other countries CO2 emissions per capitay also
+rapidly declined.")
+
+```
+4.  (6pt) Compute average CO2 emissions per capita across the continents (assume *region* is the same as continent). Comment what do you see.\
+    Note: just compute averages over countries and ignore the fact that countries are of different size.\
+    Hint: Americas 2016 should be 4.80.\
+```{r}
+co2_by_region <- gapminder %>%
+  filter(!is.na(co2_PC)) %>%
+  filter(time == 2016) %>%
+  group_by(region) %>%
+  summarize(avg_co2_pc = mean(co2_PC, na.rm = TRUE))
+co2_by_region
+cat("I see that Europe has the highest average CO2 emissions per capita across the continent and Africa has the lowest.")
+```
+5.  (7pt) Make a barplot where you show the previous results--average CO2 emissions per capita across continents in 1960 and 2016.\
+```{r}
+gapminder %>%
+  filter(time %in% c(1960, 2016), !is.na(region), !is.na(co2_PC)) %>%
+  group_by(region, time) %>%
+  summarise(mean_co2_pc = mean(co2_PC)) %>%
+
+ggplot(aes(x = region, y = mean_co2_pc, fill = factor(time))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Continent", y = "Average CO2 emissions per capita", title = "Average CO2 Emissions per Capita by Year and Continent")+
+  scale_fill_discrete(name = "Year", labels = c("1960", "2016")) +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+cat("The average C02 emissions per capita in 1960 were the highest in the Americas and in 2016 it was highest Europe. It has been the lowest in Africa both 2016 and 1960.")
+
+```
+
+6.  Which countries are the three largest, and three smallest CO2 emitters (in terms of CO2 per capita) in 2019 for each continent? (Assume *region* is continent).\
+
+```{r}
+top3 <- gapminder %>%
+  filter(time == 2016, !is.na(co2_PC)) %>%
+  group_by(region) %>%
+  slice_max(co2_PC, n = 3) %>%
+  select(region, name, co2_PC) %>%
+  arrange(region, desc(co2_PC))
+
+bottom3 <- gapminder %>%
+  filter(time == 2016, !is.na(co2_PC)) %>%
+  group_by(region) %>%
+  slice_min(co2_PC, n = 3) %>%
+  select(region, name, co2_PC) %>%
+  arrange(region, desc(co2_PC))
+
+top3
+bottom3
+
+```
+
+4. GDP per capita (50pt)
+1.  (8pt) Make a scatterplot of GDP per capita versus life expectancy by country, using data for 1960. Make the point size dependent on the country size, and color those according to the continent. Feel free to adjust the plot in other ways to make it better.\
+```{r}
+
+data_1960 <-gapminder %>% 
+  filter(time == 1960)
+
+ggplot(data_1960, aes(x = GDP_PC, y = lifeExpectancy, size = totalPopulation, color = region)) +
+  geom_point(alpha = 0.5) +
+  scale_size(range = c(1, 10), breaks = c(1e7, 5e7, 1e8, 5e8),
+             labels = c("10M", "50M", "100M", "500M")) +
+  scale_color_manual(values = c(Africa = "red", Americas = "orange", Asia = "purple", Europe = "pink", Oceania = "blue")) +
+  labs(title = "GDP per capita vs life expectancy in 1960",
+       x = "GDP per capita",
+       y = "Life expectancy (years)",
+       size = "Total Population",
+       color = "Continent") +
+  theme_minimal()
+
+cat("I see that the life expectancy has a relationship with GDP per capita because
+      the graph follows a pattern. As GDP per capita increases, so does life expectancy.")
+
+
+
+```
+2.  (4pt) Make a similar plot, but this time use 2019 data only.\
+```{r}
+
+data_1960 <-gapminder %>% 
+  filter(time == 2019)
+
+ggplot(data_1960, aes(x = GDP_PC, y = lifeExpectancy, size = totalPopulation, color = region)) +
+  geom_point(alpha = 0.5) +
+  scale_size(range = c(1, 10), breaks = c(1e7, 5e7, 1e8, 5e8),
+             labels = c("10M", "50M", "100M", "500M")) +
+  scale_color_manual(values = c(Africa = "red", Americas = "orange", Asia = "purple", Europe = "pink", Oceania = "blue")) +
+  labs(title = "GDP per capita vs life expectancy in 2019",
+       x = "GDP per capita",
+       y = "Life expectancy (years)",
+       size = "Total Population",
+       color = "Continent") +
+  theme_minimal()
+
+```
+3.  (6pt) Compare these two plots and comment what do you see. How has world developed through the last 60 years?\
+```{r}
+cat("My first observation is that there is a much higher population in 2019 than in 1960 because there are a lot bigger circles. My second observation is that very specific continents are towards the lower end of GDP and life expectancy and the ranges are a lot more distinct; namely Africa is towards the lower
+end of life expectancy and GDP per capita in the 2019 scatterplot whereas in the 1960 scatterplot the   data wasn't as spread out, and there were other regions that were also on the lower end. The overall
+trend for the continents is similar though; Americas and Europe are towards the higher end of the scale. Life expectancies have overall increased across all continents. ")
+
+```
+4.  (6pt) Compute the average life expectancy for each continent in 1960 and 2019. Do the results fit with what do you see on the figures?\
+```{r}
+avg_lifeExp_60 <- gapminder %>%
+   filter(!is.na(lifeExpectancy)) %>%
+  filter(time == 1960) %>%
+  group_by(region) %>%
+  summarize(avg_lifeExp60 = mean(lifeExpectancy, na.rm = TRUE))
+
+avg_lifeExp_60
+
+
+avg_lifeExp_19 <- gapminder %>%
+   filter(!is.na(lifeExpectancy)) %>%
+  filter(time == 2019) %>%
+  group_by(region) %>%
+  summarize(avg_lifeExp19 = mean(lifeExpectancy, na.rm = TRUE))
+
+avg_lifeExp_19
+
+cat("The table data fits because the numbers are a lot larger for 2019 than 1960, as depicted in the plot.")
+
+
+```
+5.  (8pt) Compute the average LE growth from 1960-2019 across the continents. Show the results in the order of growth. Explain what do you see.\
+```{r}
+gapminder %>%
+filter(!is.na(region), !is.na(lifeExpectancy), !is.na(time))%>%
+filter(time %in% c("1960", "2019"))%>%
+group_by(region,time)%>%
+summarize(avg = mean(lifeExpectancy))%>%
+mutate(previous = lag(avg, default = 0), now = avg - previous)
+cat("The table shows us that the average LE growth was highest in Africa and
+      the lowest in Europe.")
+```
+
+6.  (6pt) Show the histogram of GDP per capita for years of 1960 and 2019. Try to put both histograms on the same graph, see how well you can do it!\
+```{r}
+
+gapminder %>%
+  filter(!is.na(GDP_PC), time %in% c(1960, 2019)) %>%
+  ggplot(aes(x = GDP_PC, fill = factor(time))) +
+  geom_histogram(alpha = 0.5, position = "dodge", bins = 30) +
+  scale_fill_manual(values = c("blue", "lightgreen"), labels = c("1960", "2019")) +
+  labs(x = "GDP per capita", y = "Count", title = "GDP per capita for 1960 and 2019") +
+  theme_minimal()
+
+cat("The graph shows that the count for GDP per capita in 2019 is higher than the count in 1960.")
+```
+7.  (6pt) What was the ranking of US in terms of life expectancy in 1960 and in 2019? (When counting from top.)\
+```{r}
+gapminder%>%
+  filter(name!="", time == "1960" & !is.na(lifeExpectancy)) %>%
+  mutate(rank60 = rank(desc(lifeExpectancy))) %>%
+  filter(name == "United States of America")%>%
+  filter(!is.na(rank60)) %>%
+  pull(rank60) %>%
+cat("The rank of US in terms of life expectancy in 1960 is", ., "\n")
+
+gapminder%>%
+  filter(name!="", time == "2019" & !is.na(lifeExpectancy)) %>%
+  mutate(rank19 = rank(desc(lifeExpectancy))) %>%
+  filter(name == "United States of America")%>%
+  filter(!is.na(rank19)) %>%
+  pull(rank19) %>%
+
+  cat("The rank of US in terms of life expectancy in 2019 is", ., "\n")
+  
+```
+8.  (6pt) If you did this correctly, then you noticed that US ranking has been falling quite a bit. But we also have more countries in 2019--what about the relative rank divided by the corresponding number of countries that have LE data in the corresponding year?\
+```{r}
+
+countries_19 <- gapminder %>% 
+  filter(time == 2019, !is.na(lifeExpectancy), name != "") %>% 
+  summarise(num_countries_19 = n())
+
+countries_19
+
+rel_rank_19 <- gapminder %>% 
+  filter(time == 2019, name != "") %>% 
+  mutate (rank_19 = rank(desc(lifeExpectancy))) %>% 
+  filter(name == "United States of America") %>% 
+  pull(rank_19)/countries_19$num_countries_19
+  
+countries_60 <- gapminder %>% 
+  filter(time == 1960, !is.na(lifeExpectancy), name != "") %>% 
+  summarise(num_countries_60 = n())
+
+countries_60
+
+rel_rank_60 <- gapminder %>% 
+  filter(time == 1960, name != "") %>% 
+  mutate (rank_60 = rank(desc(lifeExpectancy))) %>% 
+  filter(name == "United States of America") %>% 
+  pull(rank_60)/countries_60$num_countries_60
+  
+  
+
+
+
+cat("The relative rank in 1960 is", rel_rank_60, "\n")
+cat("The relative rank in 2019 is", rel_rank_19, "\n")
+
+```
+
+Finally tell us how many hours did you spend on this PS.
+```{r}
+cat("I spent around 8 hours on this assignment.")
+```
